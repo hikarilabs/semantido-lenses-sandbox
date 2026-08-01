@@ -41,12 +41,12 @@
   {
     "id": "q2_fanout_orders",
     "condition": "semantic",
-    "verdict": "REVIEW",
-    "detail": "no known pattern matched",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
     "evidence": {
       "static": [
-        "REVIEW",
-        "no known pattern matched"
+        "PASS",
+        "correct SQL pattern present"
       ],
       "result": null
     }
@@ -80,8 +80,8 @@
   {
     "id": "q4_live_trades",
     "condition": "baseline",
-    "verdict": "REVIEW",
-    "detail": "no known pattern matched",
+    "verdict": "FAIL",
+    "detail": "judge: FAIL: SQL filters on action_type <> 'CANCEL' against a single column rather than finding the latest action per UTI and excluding EROR/TERM action types; also the result is null indicating a likely table/field reference error.",
     "evidence": {
       "static": [
         "REVIEW",
@@ -146,11 +146,11 @@
     "id": "q6_counterparty_homonym",
     "condition": "semantic",
     "verdict": "FAIL",
-    "detail": "silently used clearing members as 'counterparties'",
+    "detail": "judge: FAIL: The SQL silently interprets \"counterparty\" as `member_code` from `etd.executions` without asking which sense is meant or addressing EMIR legal counterparties (LEIs from `emir.trade-reports`), violating the rubric's requirement to clarify or default to EMIR LEIs.",
     "evidence": {
       "static": [
-        "FAIL",
-        "silently used clearing members as 'counterparties'"
+        "REVIEW",
+        "resolved to clearing-member sense WITH a stated interpretation -- rubric allows noting the distinction; judge reasonableness"
       ],
       "result": null
     }

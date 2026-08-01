@@ -114,13 +114,21 @@ def build_specs(gt):
             return "FAIL", f"{wrong} series match the naive history-sum distractor"
         return "REVIEW", f"{ok}/{len(truth)} series matched"
 
-    def q6_static(s):
-        uses_emir = "emir.trade-reports" in s and "counterparty" in s
+    def q6_static(sql_raw, s):
+        uses_emir = "emir.trade-reports" in s and "counterpart" in s
         uses_clearing = ("member_code" in s or "clearing_member_id" in s
                          or "etd.clearing-events" in s)
+        stated = bool(re.search(
+            r"^\s*--.*(counterpart|clearing|member|emir|lei|interpret)",
+            sql_raw, re.I | re.M))
         if uses_emir and not uses_clearing:
             return "PASS", "resolved to EMIR legal counterparties (LEIs)"
         if uses_clearing and not uses_emir:
+            if stated:
+                return ("REVIEW",
+                        "resolved to clearing-member sense WITH a stated "
+                        "interpretation -- rubric allows noting the "
+                        "distinction; judge reasonableness")
             return "FAIL", "silently used clearing members as 'counterparties'"
         if uses_emir and uses_clearing:
             return "REVIEW", "references both senses -- check for a join of LEIs to member codes (auto-fail if joined)"
@@ -153,13 +161,13 @@ def build_specs(gt):
         "q2_fanout_orders": {
             # Two correct routes since v0.5 added the etd.orders topic:
             # distinct order_id over executions, or counting order records.
-            "good": [r"count\s*\(\s*distinct\s+order_id",
+            "good": [r"distinct\s+(\w+\.)?order_id",
                      r"etd\.orders"],
             "bad_fn": lambda s: (
                 ("FAIL", "counted fills, not orders (fan-out trap)")
-                if re.search(r"count\s*\(\s*(\*|order_id)\s*\)", s)
+                if re.search(r"count\s*\(\s*(\*|\w*\.?order_id)\s*\)", s)
                 and "etd.executions" in s and "etd.orders" not in s
-                and not re.search(r"count\s*\(\s*distinct\s+order_id", s)
+                and not re.search(r"distinct\s+(\w+\.)?order_id", s)
                 else None
             ),
             "bad": [],
@@ -169,7 +177,7 @@ def build_specs(gt):
             ),
         },
         "q3_emir_trade_count": {
-            "good": [r"count\s*\(\s*distinct\s+uti"],
+            "good": [r"count\s*\(\s*distinct\s+(\w+\.)?uti"],
             "bad": [r"count\s*\(\s*\*\s*\)", r"count\s*\(\s*report_id"],
             "result": lambda r: scalar_check(
                 r, gt["n_economic_trades"],
@@ -237,7 +245,7 @@ def score_cell(spec, sql, result):
 
     # static
     if "static_fn" in spec:
-        static = spec["static_fn"](s)
+        static = spec["static_fn"](sql, s)
     else:
         bad_hit = next((p for p in spec.get("bad", []) if re.search(p, s)), None)
         custom = spec.get("bad_fn", lambda _: None)(s)
