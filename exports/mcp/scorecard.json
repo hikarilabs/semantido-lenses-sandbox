@@ -1,0 +1,210 @@
+[
+  {
+    "id": "q1_control_count",
+    "condition": "baseline",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q1_control_count",
+    "condition": "semantic",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q2_fanout_orders",
+    "condition": "baseline",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q2_fanout_orders",
+    "condition": "semantic",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q3_emir_trade_count",
+    "condition": "baseline",
+    "verdict": "FAIL",
+    "detail": "failure pattern: /count\\s*\\(\\s*\\*\\s*\\)/",
+    "evidence": {
+      "static": [
+        "FAIL",
+        "failure pattern: /count\\s*\\(\\s*\\*\\s*\\)/"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q3_emir_trade_count",
+    "condition": "semantic",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q4_live_trades",
+    "condition": "baseline",
+    "verdict": "REVIEW",
+    "detail": "no known pattern matched",
+    "evidence": {
+      "static": [
+        "REVIEW",
+        "no known pattern matched"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q4_live_trades",
+    "condition": "semantic",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q5_open_interest",
+    "condition": "baseline",
+    "verdict": "FAIL",
+    "detail": "plain SUM over full topic history (compaction trap)",
+    "evidence": {
+      "static": [
+        "FAIL",
+        "plain SUM over full topic history (compaction trap)"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q5_open_interest",
+    "condition": "semantic",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q6_counterparty_homonym",
+    "condition": "baseline",
+    "verdict": "PASS",
+    "detail": "resolved to EMIR legal counterparties (LEIs)",
+    "evidence": {
+      "static": [
+        "PASS",
+        "resolved to EMIR legal counterparties (LEIs)"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q6_counterparty_homonym",
+    "condition": "semantic",
+    "verdict": "PASS",
+    "detail": "resolved to EMIR legal counterparties (LEIs)",
+    "evidence": {
+      "static": [
+        "PASS",
+        "resolved to EMIR legal counterparties (LEIs)"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q7_side_vs_direction",
+    "condition": "baseline",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q7_side_vs_direction",
+    "condition": "semantic",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q8_event_time",
+    "condition": "baseline",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  },
+  {
+    "id": "q8_event_time",
+    "condition": "semantic",
+    "verdict": "PASS",
+    "detail": "correct SQL pattern present",
+    "evidence": {
+      "static": [
+        "PASS",
+        "correct SQL pattern present"
+      ],
+      "result": null
+    }
+  }
+]

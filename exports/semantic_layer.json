@@ -1,0 +1,439 @@
+{
+    "tables": {
+        "emir.trade-reports": {
+            "name": "emir.trade-reports",
+            "description": "EMIR trade reports (one record per report submission, append-only). Both-sided reporting: each economic trade normally appears twice, once per reporting counterparty.",
+            "primary_key": [
+                "report_id"
+            ],
+            "synonyms": [
+                "EMIR reports",
+                "transaction reports",
+                "TR submissions"
+            ],
+            "application_context": "Lenses SQL: query as `emir.trade-reports`. To count economic trades, COUNT(DISTINCT uti). counterparty_1 / counterparty_2 are LEIs of the legal parties -- do not join them to clearing_member_id (member codes, different concept).",
+            "business_context": "EMIR Refit reporting to a trade repository. Dual-sided: naive COUNT(*) of reports is ~2x the number of economic trades.",
+            "time_dimension": "reporting_timestamp",
+            "columns": [
+                {
+                    "name": "report_id",
+                    "data_type": "VARCHAR",
+                    "description": "Unique report submission id",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "uti",
+                    "data_type": "VARCHAR",
+                    "description": "Unique Transaction Identifier shared by both sides of the trade",
+                    "is_foreign_key": false,
+                    "application_rules": [
+                        "COUNT(DISTINCT uti) = number of economic trades; COUNT(*) counts report submissions (approx. double)."
+                    ]
+                },
+                {
+                    "name": "counterparty_1",
+                    "data_type": "VARCHAR",
+                    "description": "LEI of the reporting counterparty (EMIR field 1.4) -- the legal party submitting this report",
+                    "synonyms": [
+                        "reporting counterparty",
+                        "CP1",
+                        "LEI"
+                    ],
+                    "is_foreign_key": false,
+                    "concept": "counterparty.emir_reporting"
+                },
+                {
+                    "name": "counterparty_2",
+                    "data_type": "VARCHAR",
+                    "description": "LEI of the other counterparty (EMIR field 1.9)",
+                    "is_foreign_key": false,
+                    "concept": "counterparty.emir_reporting"
+                },
+                {
+                    "name": "exec_id",
+                    "data_type": "VARCHAR",
+                    "description": "Originating execution reference (etd.executions.exec_id)",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "action_type",
+                    "data_type": "VARCHAR",
+                    "description": "EMIR action type",
+                    "sample_values": [
+                        "NEWT",
+                        "MODI",
+                        "EROR",
+                        "TERM"
+                    ],
+                    "is_foreign_key": false,
+                    "application_rules": [
+                        "Live trades = latest action per UTI not in (EROR, TERM); a NEWT followed by EROR is not outstanding."
+                    ]
+                },
+                {
+                    "name": "notional",
+                    "data_type": "DECIMAL",
+                    "description": "Notional amount in notional_currency",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "notional_currency",
+                    "data_type": "VARCHAR",
+                    "description": "Column: notional_currency",
+                    "sample_values": [
+                        "EUR",
+                        "USD"
+                    ],
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "reporting_timestamp",
+                    "data_type": "TIMESTAMP",
+                    "description": "Time the report was submitted to the TR",
+                    "is_foreign_key": false,
+                    "is_time_dimension": true
+                }
+            ]
+        },
+        "etd.clearing-events": {
+            "name": "etd.clearing-events",
+            "description": "Clearing system lifecycle events (C7-style): NOVATION, GIVE_UP, TAKE_UP, POSITION_NETTING, TRADE_CORRECTION. Append-only event stream keyed by clearing event id.",
+            "primary_key": [
+                "event_id"
+            ],
+            "synonyms": [
+                "clearing lifecycle",
+                "post-trade events",
+                "C7 events"
+            ],
+            "application_context": "Lenses SQL: query as `etd.clearing-events`.",
+            "business_context": "Post-trade clearing at the CCP. After NOVATION the CCP becomes the counterparty to each clearing member; original bilateral link is replaced.",
+            "time_dimension": "event_time",
+            "columns": [
+                {
+                    "name": "event_id",
+                    "data_type": "VARCHAR",
+                    "description": "Unique clearing event identifier",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "event_type",
+                    "data_type": "VARCHAR",
+                    "description": "Lifecycle event type",
+                    "sample_values": [
+                        "NOVATION",
+                        "GIVE_UP",
+                        "TAKE_UP",
+                        "POSITION_NETTING",
+                        "TRADE_CORRECTION"
+                    ],
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "exec_id",
+                    "data_type": "VARCHAR",
+                    "description": "Originating execution (etd.executions.exec_id) where applicable",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "clearing_member_id",
+                    "data_type": "VARCHAR",
+                    "description": "Clearing member (GCM/DCM) code affected by the event. In clearing documentation this entity is often loosely called the 'counterparty' -- it is NOT the EMIR reporting counterparty.",
+                    "synonyms": [
+                        "clearer",
+                        "member",
+                        "CM"
+                    ],
+                    "is_foreign_key": false,
+                    "concept": "counterparty.clearing_member"
+                },
+                {
+                    "name": "account",
+                    "data_type": "VARCHAR",
+                    "description": "Position account: A (agent/client) or P (proprietary)",
+                    "sample_values": [
+                        "A1",
+                        "P1"
+                    ],
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "event_time",
+                    "data_type": "TIMESTAMP",
+                    "description": "Business time the clearing event took effect",
+                    "is_foreign_key": false,
+                    "is_time_dimension": true
+                }
+            ]
+        },
+        "etd.executions": {
+            "name": "etd.executions",
+            "description": "Exchange execution (fill) events for exchange-traded derivatives. One record per fill; a single order may produce many fills. Append-only event stream.",
+            "primary_key": [
+                "exec_id"
+            ],
+            "synonyms": [
+                "fills",
+                "trades",
+                "executions"
+            ],
+            "application_context": "Lenses SQL: query as `etd.executions` (backticks required). Append-only: aggregations over the full stream are valid.",
+            "business_context": "ETD trade lifecycle, pre-clearing. Quantities here are unsigned lot counts; direction is carried by `side`.",
+            "time_dimension": "exec_time",
+            "columns": [
+                {
+                    "name": "exec_id",
+                    "data_type": "VARCHAR",
+                    "description": "Unique execution/fill identifier assigned by the exchange",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "order_id",
+                    "data_type": "VARCHAR",
+                    "description": "Parent order identifier; fan-out: many fills per order",
+                    "is_foreign_key": false,
+                    "application_rules": [
+                        "Counting orders requires COUNT(DISTINCT order_id), never COUNT(*)"
+                    ]
+                },
+                {
+                    "name": "contract_series",
+                    "data_type": "VARCHAR",
+                    "description": "Contract series code, e.g. FDAX-2026-09",
+                    "sample_values": [
+                        "FDAX-2026-09",
+                        "FESX-2026-09",
+                        "OGBL-2026-08-C-132"
+                    ],
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "side",
+                    "data_type": "VARCHAR",
+                    "description": "Aggressor side of this fill: BUY or SELL",
+                    "sample_values": [
+                        "BUY",
+                        "SELL"
+                    ],
+                    "is_foreign_key": false,
+                    "application_rules": [
+                        "Side is the execution direction, NOT the resulting position direction. A BUY fill can reduce a short position; never infer LONG/SHORT from side."
+                    ]
+                },
+                {
+                    "name": "quantity",
+                    "data_type": "DECIMAL",
+                    "description": "Unsigned number of lots in this fill (always positive)",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "price",
+                    "data_type": "DECIMAL",
+                    "description": "Execution price per contract",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "executing_member",
+                    "data_type": "VARCHAR",
+                    "description": "Exchange member that executed the fill (member code)",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "exec_time",
+                    "data_type": "TIMESTAMP",
+                    "description": "Business event time of the fill (exchange matching timestamp). Use this for trade-date logic, not Kafka _meta.timestamp (ingestion time).",
+                    "is_foreign_key": false,
+                    "is_time_dimension": true
+                }
+            ]
+        },
+        "etd.positions": {
+            "name": "etd.positions",
+            "description": "COMPACTED state topic: current net position per key (clearing_member_id, account, contract_series). Each record is a full replacement snapshot for its key, not a delta.",
+            "primary_key": [
+                "position_key"
+            ],
+            "synonyms": [
+                "positions",
+                "open interest by member"
+            ],
+            "application_context": "Lenses SQL: query as `etd.positions`. COMPACTION SEMANTICS: the snapshot engine may return multiple historical records per key; aggregating (SUM/COUNT) over all records double-counts. Valid current-state reads must take the latest record per key (max _meta.offset per partition/key) before any aggregation.",
+            "business_context": "Netted post-clearing positions maintained by the CCP.",
+            "time_dimension": "as_of_time",
+            "concept": "position.net",
+            "columns": [
+                {
+                    "name": "position_key",
+                    "data_type": "VARCHAR",
+                    "description": "Message key: clearing_member_id|account|contract_series",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "clearing_member_id",
+                    "data_type": "VARCHAR",
+                    "description": "Clearing member holding the position",
+                    "is_foreign_key": false,
+                    "concept": "counterparty.clearing_member"
+                },
+                {
+                    "name": "account",
+                    "data_type": "VARCHAR",
+                    "description": "Position account (A/P)",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "contract_series",
+                    "data_type": "VARCHAR",
+                    "description": "Contract series code",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "net_quantity",
+                    "data_type": "DECIMAL",
+                    "description": "SIGNED net lots: positive = LONG, negative = SHORT. Gross long/short cannot be recovered from this field.",
+                    "is_foreign_key": false,
+                    "application_rules": [
+                        "Total open interest per series = SUM(ABS(net_quantity))/2 over the LATEST record per key only.",
+                        "Never SUM net_quantity across the topic history: compaction means history contains superseded snapshots."
+                    ]
+                },
+                {
+                    "name": "as_of_time",
+                    "data_type": "TIMESTAMP",
+                    "description": "Business time this snapshot became effective",
+                    "is_foreign_key": false,
+                    "is_time_dimension": true
+                }
+            ]
+        },
+        "refdata.contracts": {
+            "name": "refdata.contracts",
+            "description": "COMPACTED reference-data topic: one current record per contract series (key = contract_series).",
+            "primary_key": [
+                "contract_series"
+            ],
+            "synonyms": [
+                "contracts",
+                "instrument reference data",
+                "series master"
+            ],
+            "application_context": "Lenses SQL: query as `refdata.contracts`. Compacted: use latest record per key.",
+            "columns": [
+                {
+                    "name": "contract_series",
+                    "data_type": "VARCHAR",
+                    "description": "Contract series code (join key across topics)",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "product_type",
+                    "data_type": "VARCHAR",
+                    "description": "Column: product_type",
+                    "sample_values": [
+                        "FUTURE",
+                        "OPTION"
+                    ],
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "underlying",
+                    "data_type": "VARCHAR",
+                    "description": "Underlying index/asset code",
+                    "sample_values": [
+                        "DAX",
+                        "EURO STOXX 50",
+                        "Bund"
+                    ],
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "contract_multiplier",
+                    "data_type": "DECIMAL",
+                    "description": "Value of one point per contract; notional = price * multiplier * lots",
+                    "is_foreign_key": false
+                },
+                {
+                    "name": "expiry_date",
+                    "data_type": "TIMESTAMP",
+                    "description": "Contract expiry date",
+                    "is_foreign_key": false
+                }
+            ]
+        }
+    },
+    "concepts": {
+        "sources": {
+            "fibo": {
+                "namespace": "https://spec.edmcouncil.org/fibo/ontology/",
+                "version": "2025Q3"
+            }
+        },
+        "concepts": {
+            "counterparty.clearing_member": {
+                "label": "counterparty",
+                "definition": "A member of the CCP that clears trades (GCM/DCM). NOT a legal counterparty to the economic trade for EMIR reporting purposes; faces the CCP post-novation. The word 'counterparty' in clearing system docs (e.g. Eurex C7) usually means this entity.",
+                "definition_checksum": "bb1b777599e5",
+                "synonyms": [
+                    "clearing member",
+                    "clearer",
+                    "GCM",
+                    "DCM"
+                ],
+                "mappings": [
+                    {
+                        "target": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/MarketsIndividuals/ClearingMember",
+                        "relation": "exact_match",
+                        "skos": "skos:exactMatch",
+                        "source": "fibo"
+                    }
+                ],
+                "relations": [
+                    {
+                        "relation": "distinct_from",
+                        "concept": "counterparty.emir_reporting"
+                    },
+                    {
+                        "relation": "related",
+                        "concept": "position.net"
+                    }
+                ]
+            },
+            "counterparty.emir_reporting": {
+                "label": "counterparty",
+                "definition": "The entity on whose behalf an EMIR trade report is submitted (EMIR RTS field 1.4). Identified by LEI. One of the two legal parties to the derivative contract.",
+                "definition_checksum": "8c5600548a89",
+                "synonyms": [
+                    "reporting counterparty",
+                    "CP1"
+                ],
+                "mappings": [
+                    {
+                        "target": "https://spec.edmcouncil.org/fibo/ontology/DER/DerivativesContracts/DerivativesBasics/Counterparty",
+                        "relation": "close_match",
+                        "skos": "skos:closeMatch",
+                        "source": "fibo",
+                        "justification": "EMIR reporting counterparty is a role-restricted subset of the FIBO derivatives counterparty"
+                    }
+                ],
+                "relations": [
+                    {
+                        "relation": "distinct_from",
+                        "concept": "counterparty.clearing_member"
+                    }
+                ]
+            },
+            "position.net": {
+                "label": "net",
+                "definition": "Post-netting exposure per (clearing member, account, contract series). Signed: positive = long, negative = short. Current state, not a flow.",
+                "definition_checksum": "236015fa5333",
+                "relations": [
+                    {
+                        "relation": "related",
+                        "concept": "counterparty.clearing_member"
+                    }
+                ]
+            }
+        }
+    },
+    "relationships": []
+}

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "q1_control_count",
+    "condition": "baseline",
+    "sql": "SELECT COUNT(*) AS total_execution_fills\nFROM `etd.executions`;"
+  },
+  {
+    "id": "q1_control_count",
+    "condition": "semantic",
+    "sql": "SELECT COUNT(*) AS total_fills FROM `etd.executions`;"
+  },
+  {
+    "id": "q2_fanout_orders",
+    "condition": "baseline",
+    "sql": "SELECT COUNT(DISTINCT order_id) AS distinct_orders_executed\nFROM `etd.executions`;"
+  },
+  {
+    "id": "q2_fanout_orders",
+    "condition": "semantic",
+    "sql": "SELECT COUNT(DISTINCT order_id) AS total_orders\nFROM `etd.executions`;"
+  },
+  {
+    "id": "q3_emir_trade_count",
+    "condition": "baseline",
+    "sql": "SELECT COUNT(*) AS total_emir_trade_reports\nFROM `emir.trade-reports`;"
+  },
+  {
+    "id": "q3_emir_trade_count",
+    "condition": "semantic",
+    "sql": "COUNT(DISTINCT uti) per the schema rule: each economic trade appears twice (one report per counterparty), so COUNT(*) would double-count.\nSELECT COUNT(DISTINCT uti) AS economic_trade_count\nFROM `emir.trade-reports`;"
+  },
+  {
+    "id": "q4_live_trades",
+    "condition": "baseline",
+    "sql": "SELECT\n    COUNT(*) AS outstanding_trade_count\nFROM `emir.trade-reports`\nWHERE action_type <> 'CANCEL';"
+  },
+  {
+    "id": "q4_live_trades",
+    "condition": "semantic",
+    "sql": "-- Interpretation: \"outstanding\" = latest action per UTI is not EROR or TERM.\n-- COUNT(DISTINCT uti) is used to count economic trades (not report submissions).\n-- \"Latest action per UTI\" is determined by the most recent reporting_timestamp for that UTI.\n\nSELECT COUNT(DISTINCT uti) AS outstanding_trade_count\nFROM (\n    SELECT\n        uti,\n        action_type,\n        ROW_NUMBER() OVER (PARTITION BY uti ORDER BY reporting_timestamp DESC) AS rn\n    FROM `emir.trade-reports`\n) latest\nWHERE rn = 1\n  AND action_type NOT IN ('EROR', 'TERM');"
+  },
+  {
+    "id": "q5_open_interest",
+    "condition": "baseline",
+    "sql": "SELECT\n    contract_series,\n    SUM(ABS(net_quantity)) AS total_abs_net_position\nFROM `etd.positions`\nGROUP BY contract_series\nORDER BY total_abs_net_position DESC;"
+  },
+  {
+    "id": "q5_open_interest",
+    "condition": "semantic",
+    "sql": "-- Interpretation: \"current\" = latest compacted record per (clearing_member_id, account, contract_series) key,\n-- identified by max _meta.offset per partition and _key. Then SUM(ABS(net_quantity)) per contract_series.\n-- Per schema rule: total open interest per series = SUM(ABS(net_quantity))/2 is for open interest;\n-- the question asks for total absolute net position (not open interest), so we SUM(ABS(net_quantity)) directly\n-- without halving, representing the sum of absolute exposures across all members/accounts per series.\n\nSELECT\n    contract_series,\n    SUM(ABS(net_quantity)) AS total_abs_net_position\nFROM (\n    SELECT\n        contract_series,\n        net_quantity,\n        ROW_NUMBER() OVER (\n            PARTITION BY _key, _meta.partition\n            ORDER BY _meta.offset DESC\n        ) AS rn\n    FROM `etd.positions`\n) latest\nWHERE rn = 1\nGROUP BY contract_series\nORDER BY total_abs_net_position DESC\nLIMIT 100;"
+  },
+  {
+    "id": "q6_counterparty_homonym",
+    "condition": "baseline",
+    "sql": "-- Interpreting \"most trading activity\" as highest count of EMIR trade reports and highest total notional,\n-- and \"this week\" as based on reporting_timestamp (business event time) rather than Kafka ingestion time.\n-- Counterparty activity is counted from both counterparty_1 and counterparty_2 perspectives (unioned).\n\nSELECT\n    counterparty,\n    COUNT(*) AS report_count,\n    SUM(notional) AS total_notional,\n    COUNT(DISTINCT notional_currency) AS currencies_used\nFROM (\n    SELECT counterparty_1 AS counterparty, notional, notional_currency\n    FROM `emir.trade-reports`\n    WHERE reporting_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)\n      AND action_type != 'CANCEL'\n\n    UNION ALL\n\n    SELECT counterparty_2 AS counterparty, notional, notional_currency\n    FROM `emir.trade-reports`\n    WHERE reporting_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)\n      AND action_type != 'CANCEL'\n) combined\nGROUP BY counterparty\nORDER BY report_count DESC, total_notional DESC\nLIMIT 25;"
+  },
+  {
+    "id": "q6_counterparty_homonym",
+    "condition": "semantic",
+    "sql": "-- Interpretation: \"counterparty\" resolved as counterparty.emir_reporting (LEI-identified legal counterparties in emir.trade-reports),\n-- since the question is about trading activity (economic trades), not clearing membership.\n-- \"Most trading activity\" = highest count of distinct economic trades (COUNT(DISTINCT uti)) where counterparty appears as either CP1 or CP2.\n-- \"This week\" = current calendar week (Monday\u2013now), using reporting_timestamp as the time axis.\n-- Each UTI is counted once per counterparty LEI (union of CP1 and CP2 appearances).\n\nSELECT\n    counterparty_lei,\n    COUNT(DISTINCT uti) AS economic_trade_count\nFROM (\n    SELECT counterparty_1 AS counterparty_lei, uti, reporting_timestamp\n    FROM `emir.trade-reports`\n    WHERE reporting_timestamp >= CAST(DATE_TRUNC('week', CURRENT_TIMESTAMP) AS TIMESTAMP)\n\n    UNION ALL\n\n    SELECT counterparty_2 AS counterparty_lei, uti, reporting_timestamp\n    FROM `emir.trade-reports`\n    WHERE reporting_timestamp >= CAST(DATE_TRUNC('week', CURRENT_TIMESTAMP) AS TIMESTAMP)\n) all_sides\nGROUP BY counterparty_lei\nORDER BY economic_trade_count DESC\nLIMIT 25;"
+  },
+  {
+    "id": "q7_side_vs_direction",
+    "condition": "baseline",
+    "sql": "SELECT\n    clearing_member_id,\n    account,\n    net_quantity,\n    as_of_time\nFROM `etd.positions`\nWHERE contract_series = 'FDAX-2026-09'\n  AND net_quantity < 0\nORDER BY net_quantity ASC;"
+  },
+  {
+    "id": "q7_side_vs_direction",
+    "condition": "semantic",
+    "sql": "SELECT\n    clearing_member_id,\n    account,\n    net_quantity\nFROM (\n    SELECT\n        clearing_member_id,\n        account,\n        contract_series,\n        net_quantity,\n        ROW_NUMBER() OVER (\n            PARTITION BY clearing_member_id, account, contract_series\n            ORDER BY _meta.offset DESC\n        ) AS rn\n    FROM `etd.positions`\n    WHERE contract_series = 'FDAX-2026-09'\n) latest\nWHERE rn = 1\n  AND net_quantity < 0\nORDER BY net_quantity ASC;"
+  },
+  {
+    "id": "q8_event_time",
+    "condition": "baseline",
+    "sql": "SELECT\n  COUNT(*) AS fill_count\nFROM `etd.executions`\nWHERE exec_time >= '2026-07-21 00:00:00'\n  AND exec_time <  '2026-07-22 00:00:00';"
+  },
+  {
+    "id": "q8_event_time",
+    "condition": "semantic",
+    "sql": "SELECT COUNT(*) AS fill_count\nFROM `etd.executions`\nWHERE exec_time >= TIMESTAMP('2026-07-21 00:00:00')\n  AND exec_time <  TIMESTAMP('2026-07-22 00:00:00');"
+  }
+]
