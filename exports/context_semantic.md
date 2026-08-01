@@ -11,7 +11,6 @@ Machine-readable database schema for natural language queries
 - **Concept**: `emir_trade_report`
 - **Application Context**: Latest action per UTI is the trade state; count distinct UTIs for trade counts, never report rows.
 - **Time Dimension**: reporting_timestamp — primary time axis; use for any per-day/month/quarter aggregation
-- **Default Filters**: action_type <> 'EROR'
 - **Realizes concepts**: `reporting_counterparty`
 
 #### Columns
@@ -118,7 +117,7 @@ Machine-readable database schema for natural language queries
 - **Primary Key**: position_key
 - **Description**: COMPACTED state topic: netted positions per (member, account, contract). Records supersede by key; browsing shows multiple records per key until compaction.
 - **Concept**: `position_snapshot`
-- **Application Context**: COMPACTED topic: the only valid aggregate is over latest-per-key state — a Lenses-dialect concern (_meta.offset), deliberately NOT a sql_filter because it is not SQL over this schema. state. In Lenses SQL, group by key and take the max-offset record, or query the table projection.
+- **Application Context**: COMPACTED topic: the only valid aggregate is over latest-per-key state — a Lenses-dialect concern (_meta.offset), deliberately NOT a sql_filter because it is not SQL over this schema. In Lenses SQL, group by key and take the max-offset record, or query the table projection.
 - **Time Dimension**: as_of — primary time axis; use for any per-day/month/quarter aggregation
 - **Realizes concepts**: `clearing_member`
 

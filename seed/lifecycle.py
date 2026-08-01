@@ -27,6 +27,7 @@ T0 = datetime(2026, 7, 20, 8, 0, 0)
 N_FILLS = 600
 
 TOPIC_CONFIGS = {
+    "etd.orders": {},
     "etd.executions": {},
     "etd.clearing-events": {},
     "etd.positions": {"cleanup.policy": "compact"},
@@ -72,7 +73,15 @@ def generate():
     for i in range(N_FILLS):
         if not order_pool or rng.random() < 0.4:
             n_orders += 1
-            order_pool.append(f"ORD{n_orders:05d}")
+            new_order = f"ORD{n_orders:05d}"
+            order_pool.append(new_order)
+            send("etd.orders", new_order, {
+                "order_id": new_order,
+                "account": rng.choice(["A1", "P1"]),
+                "contract": rng.choice(list(SERIES)),
+                "quantity": rng.randint(10, 200),
+                "submitted_at": (T0 + timedelta(minutes=i * 2)).isoformat(),
+            })
         order_id = rng.choice(order_pool[-3:])
 
         exec_id = f"EXE{i:05d}"
@@ -93,14 +102,13 @@ def generate():
 
         send("etd.executions", exec_id, {
             "exec_id": exec_id, "order_id": order_id,
-            "contract_series": series, "side": side, "quantity": qty,
-            "price": price, "executing_member": member,
+            "member_code": member, "side": side, "exec_qty": qty,
+            "exec_price": price, "contract": series,
             "exec_time": exec_time.isoformat(),
         })
         send("etd.clearing-events", f"CLR{i:05d}", {
             "event_id": f"CLR{i:05d}", "event_type": "NOVATION",
-            "exec_id": exec_id, "clearing_member_id": member,
-            "account": account,
+            "member_code": member,
             "event_time": (exec_time + timedelta(seconds=30)).isoformat(),
         })
 
@@ -109,9 +117,9 @@ def generate():
         naive_sum[series] = naive_sum.get(series, 0) + positions[pkey]
         send("etd.positions", "|".join(pkey), {
             "position_key": "|".join(pkey),
-            "clearing_member_id": member, "account": account,
-            "contract_series": series, "net_quantity": positions[pkey],
-            "as_of_time": (exec_time + timedelta(seconds=60)).isoformat(),
+            "member_code": member, "account": account,
+            "contract": series, "net_quantity": positions[pkey],
+            "as_of": (exec_time + timedelta(seconds=60)).isoformat(),
         })
 
         uti = f"UTI2026{i:07d}"
@@ -120,28 +128,22 @@ def generate():
         lei_utis.setdefault(LEIS[member], set()).add(uti)
         lei_utis.setdefault(cp_client, set()).add(uti)
         rt = exec_time + timedelta(minutes=5)
-        for j, (cp1, cp2) in enumerate(
-            [(LEIS[member], cp_client), (cp_client, LEIS[member])]
-        ):
+        for j, reporter_lei in enumerate([LEIS[member], cp_client]):
             n_report_records += 1
             send("emir.trade-reports", f"RPT{i:05d}{j}", {
                 "report_id": f"RPT{i:05d}{j}", "uti": uti,
-                "counterparty_1": cp1, "counterparty_2": cp2,
-                "exec_id": exec_id, "action_type": "NEWT",
-                "notional": round(price * SERIES[series][2] * qty, 2),
-                "notional_currency": "EUR",
+                "counterparty_lei": reporter_lei,
+                "action_type": "NEWT",
                 "reporting_timestamp": rt.isoformat(),
             })
         if rng.random() < 0.05:
             errored_utis.add(uti)
-            for j in range(2):
+            for j, reporter_lei in enumerate([LEIS[member], cp_client]):
                 n_report_records += 1
                 send("emir.trade-reports", f"RPT{i:05d}{j}E", {
                     "report_id": f"RPT{i:05d}{j}E", "uti": uti,
-                    "counterparty_1": LEIS[member] if j == 0 else cp_client,
-                    "counterparty_2": cp_client if j == 0 else LEIS[member],
-                    "exec_id": exec_id, "action_type": "EROR",
-                    "notional": None, "notional_currency": "EUR",
+                    "counterparty_lei": reporter_lei,
+                    "action_type": "EROR",
                     "reporting_timestamp": (rt + timedelta(hours=1)).isoformat(),
                 })
 
@@ -151,8 +153,7 @@ def generate():
         for etype, mem in (("GIVE_UP", src), ("TAKE_UP", dst)):
             send("etd.clearing-events", f"GUP{g:03d}{etype[0]}", {
                 "event_id": f"GUP{g:03d}{etype[0]}", "event_type": etype,
-                "exec_id": f"EXE{rng.randint(0, N_FILLS - 1):05d}",
-                "clearing_member_id": mem, "account": "A1",
+                "member_code": mem,
                 "event_time": et.isoformat(),
             })
 

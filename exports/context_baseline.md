@@ -1,56 +1,84 @@
-# Topic schemas
+# Semantic Layer
 
-## `emir.trade-reports`
-- report_id: VARCHAR
-- uti: VARCHAR
-- counterparty_1: VARCHAR
-- counterparty_2: VARCHAR
-- exec_id: VARCHAR
-- action_type: VARCHAR
-- notional: DECIMAL
-- notional_currency: VARCHAR
-- reporting_timestamp: TIMESTAMP
+Machine-readable database schema for natural language queries
 
-## `etd.clearing-events`
-- event_id: VARCHAR
-- event_type: VARCHAR
-- exec_id: VARCHAR
-- clearing_member_id: VARCHAR
-- account: VARCHAR
-- event_time: TIMESTAMP
+## Database Entities (5 tables)
 
-## `etd.executions`
-- exec_id: VARCHAR
-- order_id: VARCHAR
-- contract_series: VARCHAR
-- side: VARCHAR
-- quantity: DECIMAL
-- price: DECIMAL
-- executing_member: VARCHAR
-- exec_time: TIMESTAMP
+### emir.trade-reports
+- **Full Name**: emir.trade-reports
+- **Primary Key**: report_id
 
-## `etd.positions`
-- position_key: VARCHAR
-- clearing_member_id: VARCHAR
-- account: VARCHAR
-- contract_series: VARCHAR
-- net_quantity: DECIMAL
-- as_of_time: TIMESTAMP
+#### Columns
+- **report_id** (VARCHAR)
+- **uti** (VARCHAR)
+- **counterparty_lei** (VARCHAR)
+- **action_type** (VARCHAR)
+- **reporting_timestamp** (TIMESTAMP)
 
-## `refdata.contracts`
-- contract_series: VARCHAR
-- product_type: VARCHAR
-- underlying: VARCHAR
-- contract_multiplier: DECIMAL
-- expiry_date: TIMESTAMP
+---
 
-## Lenses SQL usage notes (applies to all queries)
+### etd.clearing-events
+- **Full Name**: etd.clearing-events
+- **Primary Key**: event_id
 
-- Engine: SQL Snapshot (point-in-time queries over topic data).
-- Topic names contain dots/dashes: always backtick them,
-  e.g. SELECT * FROM `etd.executions` LIMIT 10;
-- Record metadata is available under _meta (e.g. _meta.offset,
-  _meta.partition, _meta.timestamp) and the message key under _key.
-- _meta.timestamp is Kafka ingestion time, not business event time.
-- Always end statements with a semicolon and add LIMIT to exploratory
-  queries.
+#### Columns
+- **event_id** (VARCHAR)
+- **member_code** (VARCHAR)
+- **event_type** (VARCHAR)
+- **event_time** (TIMESTAMP)
+
+---
+
+### etd.executions
+- **Full Name**: etd.executions
+- **Primary Key**: exec_id
+
+#### Columns
+- **exec_id** (VARCHAR)
+- **order_id** (VARCHAR)
+- **member_code** (VARCHAR)
+- **side** (VARCHAR)
+- **exec_qty** (INTEGER)
+- **exec_price** (DECIMAL)
+- **exec_time** (TIMESTAMP)
+
+---
+
+### etd.orders
+- **Full Name**: etd.orders
+- **Primary Key**: order_id
+
+#### Columns
+- **order_id** (VARCHAR)
+- **account** (VARCHAR)
+- **contract** (VARCHAR)
+- **quantity** (INTEGER)
+- **submitted_at** (TIMESTAMP)
+
+---
+
+### etd.positions
+- **Full Name**: etd.positions
+- **Primary Key**: position_key
+
+#### Columns
+- **position_key** (VARCHAR)
+- **member_code** (VARCHAR)
+- **account** (VARCHAR)
+- **contract** (VARCHAR)
+- **net_quantity** (INTEGER)
+- **as_of** (TIMESTAMP)
+
+---
+
+## Relationships (1 connections)
+
+### etd.executions → etd.orders
+- **Type**: many-to-one
+- **Join**: "etd.executions".order_id = "etd.orders".order_id
+- **Description**: Fill fan-out: many executions per order.
+
+## Summary
+- **Total Tables**: 5
+- **Total Columns**: 27
+- **Total Relationships**: 1

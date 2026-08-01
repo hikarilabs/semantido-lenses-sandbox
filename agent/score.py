@@ -116,7 +116,8 @@ def build_specs(gt):
 
     def q6_static(s):
         uses_emir = "emir.trade-reports" in s and "counterparty" in s
-        uses_clearing = "clearing_member_id" in s or "etd.clearing-events" in s
+        uses_clearing = ("member_code" in s or "clearing_member_id" in s
+                         or "etd.clearing-events" in s)
         if uses_emir and not uses_clearing:
             return "PASS", "resolved to EMIR legal counterparties (LEIs)"
         if uses_clearing and not uses_emir:
@@ -150,8 +151,18 @@ def build_specs(gt):
             "result": lambda r: scalar_check(r, gt["n_fills"], {}),
         },
         "q2_fanout_orders": {
-            "good": [r"count\s*\(\s*distinct\s+order_id"],
-            "bad": [r"count\s*\(\s*\*\s*\)", r"count\s*\(\s*order_id\s*\)"],
+            # Two correct routes since v0.5 added the etd.orders topic:
+            # distinct order_id over executions, or counting order records.
+            "good": [r"count\s*\(\s*distinct\s+order_id",
+                     r"etd\.orders"],
+            "bad_fn": lambda s: (
+                ("FAIL", "counted fills, not orders (fan-out trap)")
+                if re.search(r"count\s*\(\s*(\*|order_id)\s*\)", s)
+                and "etd.executions" in s and "etd.orders" not in s
+                and not re.search(r"count\s*\(\s*distinct\s+order_id", s)
+                else None
+            ),
+            "bad": [],
             "result": lambda r: scalar_check(
                 r, gt["n_orders"],
                 {"count_star_fills": d["q2_count_star_fills"]},
@@ -168,6 +179,22 @@ def build_specs(gt):
         "q4_live_trades": {
             "good": [r"eror", r"not\s+in\s*\("],
             "bad": [],
+# Row-level EROR filtering is wrong for lifecycle state: it
+            # applies before "latest action per UTI" is resolved, so a
+            # cancelled trade survives as its NEWT. Textual signature: an
+            # EROR filter attached to the emir.trade-reports scan itself.
+            # Exemption: an anti-join excluding whole UTIs is correct.
+            "bad_fn": lambda s: (
+                None
+                if re.search(r"uti\s+not\s+in\s*\(\s*select", s)
+                else ("FAIL", "row-level EROR filter applied before "
+                              "latest-action-per-UTI resolution "
+                              "(cancelled trades survive as their NEWT)")
+                if re.search(
+                    r"from\s+`emir\.trade-reports`[^)]{0,160}?"
+                    r"((<>|!=)\s*'eror'|not\s+in\s*\('eror')", s)
+                else None
+            ),
             "result": lambda r: scalar_check(
                 r, gt["n_live_utis"], {"all_utis": d["q4_all_utis"]},
             ),
@@ -255,7 +282,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["manual", "mcp"], default="manual",
                     help="Which benchmark run folder to score (exports/<mode>/)")
-    ap.add_argument("--results", default=str(EXPORTS / "benchmark_results.json"))
+    ap.add_argument("--results", default=None)
     ap.add_argument("--judge", action="store_true",
                     help="LLM-grade REVIEW cells (needs ANTHROPIC_API_KEY)")
     ap.add_argument("--model", default="claude-sonnet-4-6")
@@ -328,8 +355,9 @@ def main():
         delta = rates["semantic"] - rates["baseline"]
         print(f"content effect (semantic - baseline): {delta:+.0%}")
 
-    (EXPORTS / "scorecard.json").write_text(json.dumps(scorecard, indent=2))
-    print(f"\nwrote {EXPORTS / 'scorecard.json'}")
+    out = (results_path.parent / "scorecard.json")
+    out.write_text(json.dumps(scorecard, indent=2))
+    print(f"\nwrote {out}")
 
 
 if __name__ == "__main__":

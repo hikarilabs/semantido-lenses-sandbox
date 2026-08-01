@@ -1,23 +1,14 @@
--- Interpreting "counterparties" as EMIR reporting counterparties (counterparty.emir_reporting, identified by LEI in emir.trade-reports),
--- "trading activity" as number of distinct economic trades (COUNT(DISTINCT uti)) where each UTI is counted once,
--- and "this week" as the current ISO calendar week (Monday–today) based on reporting_timestamp.
+-- Interpreting "counterparty" as clearing_member (member_code) from etd.executions,
+-- since the question is about trading activity (fills/executions), not EMIR reporting.
+-- "Most trading activity" = highest total executed quantity this week.
+-- "This week" = Monday of the current ISO week through now.
 
 SELECT
-    counterparty_lei,
-    COUNT(DISTINCT uti) AS economic_trade_count
-FROM (
-    SELECT counterparty_1 AS counterparty_lei, uti, reporting_timestamp
-    FROM `emir.trade-reports`
-    UNION ALL
-    SELECT counterparty_2 AS counterparty_lei, uti, reporting_timestamp
-    FROM `emir.trade-reports`
-) combined
-WHERE
-    reporting_timestamp >= CAST(DATE_TRUNC('week', CURRENT_TIMESTAMP) AS TIMESTAMP)
-    AND reporting_timestamp < CURRENT_TIMESTAMP
-    AND action_type NOT IN ('EROR', 'TERM')
-GROUP BY
-    counterparty_lei
-ORDER BY
-    economic_trade_count DESC
-LIMIT 20;
+    member_code,
+    COUNT(exec_id)        AS fill_count,
+    SUM(exec_qty)         AS total_exec_qty
+FROM `etd.executions`
+WHERE exec_time >= CAST(DATE_TRUNC('week', NOW()) AS TIMESTAMP)
+  AND exec_time <  NOW()
+GROUP BY member_code
+ORDER BY total_exec_qty DESC

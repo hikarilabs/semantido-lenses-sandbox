@@ -62,6 +62,13 @@ def fetch_topic_schemas(registry: str, topic_filter=None):
         value = json.loads(
             _get(f"{registry}/subjects/{subj}/versions/latest")["schema"]
         )
+        if not isinstance(value, dict) or value.get("type") != "record":
+            # Primitive/union-typed value schema (e.g. Lenses CE demo
+            # topics register plain "string") -- nothing to reflect.
+            print(f"skipping {subj}: value schema is not an Avro record "
+                  f"({value if isinstance(value, str) else value.get('type')})",
+                  file=sys.stderr)
+            continue
         key = None
         key_subj = f"{topic}-key"
         if key_subj in subjects:

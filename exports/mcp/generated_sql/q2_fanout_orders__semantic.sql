@@ -1,2 +1,2 @@
-SELECT COUNT(DISTINCT order_id) AS total_orders
-FROM `etd.executions`;
+SELECT COUNT(DISTINCT e.order_id) AS executed_order_count
+FROM `etd.executions` e

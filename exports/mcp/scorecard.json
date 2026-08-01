@@ -41,12 +41,12 @@
   {
     "id": "q2_fanout_orders",
     "condition": "semantic",
-    "verdict": "PASS",
-    "detail": "correct SQL pattern present",
+    "verdict": "REVIEW",
+    "detail": "no known pattern matched",
     "evidence": {
       "static": [
-        "PASS",
-        "correct SQL pattern present"
+        "REVIEW",
+        "no known pattern matched"
       ],
       "result": null
     }
@@ -145,12 +145,12 @@
   {
     "id": "q6_counterparty_homonym",
     "condition": "semantic",
-    "verdict": "PASS",
-    "detail": "resolved to EMIR legal counterparties (LEIs)",
+    "verdict": "FAIL",
+    "detail": "silently used clearing members as 'counterparties'",
     "evidence": {
       "static": [
-        "PASS",
-        "resolved to EMIR legal counterparties (LEIs)"
+        "FAIL",
+        "silently used clearing members as 'counterparties'"
       ],
       "result": null
     }

@@ -1,4 +1,4 @@
-"""Exports agent contexts, the groundings file, and runs the lint gate.
+"""Exports agent contexts, the grounding file, and runs the lint gate.
 
 v0.5.0 rebuild. Produces:
 

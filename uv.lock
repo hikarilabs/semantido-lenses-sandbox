@@ -747,6 +747,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a6/fb/e32b4b59304a0eca32bd878416c1ba95f3ee246cdbf8ddad15ca7295ca74/semantido-0.5.1-py3-none-any.whl", hash = "sha256:91a3d9bf1effe5823dc8aee6fde1f1cad80dda832ccd54801a4232dbfc950437", size = 66112, upload-time = "2026-07-31T22:19:36.657Z" },
 ]
 
+[package.optional-dependencies]
+lint = [
+    { name = "sqlglot" },
+]
+
 [[package]]
 name = "semantido-lenses-sandbox"
 version = "0.1.0"
@@ -756,7 +761,7 @@ dependencies = [
     { name = "kafka-python" },
     { name = "mcp" },
     { name = "pyyaml" },
-    { name = "semantido" },
+    { name = "semantido", extra = ["lint"] },
 ]
 
 [package.metadata]
@@ -765,7 +770,7 @@ requires-dist = [
     { name = "kafka-python", specifier = "==3.0.9" },
     { name = "mcp", specifier = "==2.0.0" },
     { name = "pyyaml", specifier = "==6.0.3" },
-    { name = "semantido", specifier = ">=0.5.1" },
+    { name = "semantido", extras = ["lint"], specifier = ">=0.5.1" },
 ]
 
 [[package]]
@@ -809,6 +814,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/0d/c9/f14fdf71bb8957e0c7e39db69bbdf12b5c80f4ef775fdfa127bf4e0d6760/sqlalchemy-2.0.51-cp314-cp314t-win32.whl", hash = "sha256:9161cfc9efce70d1715f47d6ff40f79c6778c00d53be4fbc09d70301e4b83ba7", size = 2151313, upload-time = "2026-06-15T16:03:39.127Z" },
     { url = "https://files.pythonhosted.org/packages/6a/c6/673e618e6f4f297e126d9b56ea2f6478708f6c1af4e3223835c22e2c3697/sqlalchemy-2.0.51-cp314-cp314t-win_amd64.whl", hash = "sha256:159bb6ba32059f57ad7375a8f50d844dd2f19d14954ecf820cd33e20debd46b2", size = 2186280, upload-time = "2026-06-15T16:03:40.569Z" },
     { url = "https://files.pythonhosted.org/packages/e2/22/dbf013a12ec759e54a34a119e9e217435b3f71b2dd5c61a7ade0a25dae87/sqlalchemy-2.0.51-py3-none-any.whl", hash = "sha256:bb024d8b621d0be75f4f44ecc7c950450026e76d66dc8f791bb5331d7fed59d5", size = 1944334, upload-time = "2026-06-15T16:09:22.418Z" },
+]
+
+[[package]]
+name = "sqlglot"
+version = "30.14.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3a/cd/39a94f0f98076ee8e7c7c38fd4bba8d7845b0c629ff967057c64ef2c0989/sqlglot-30.14.0.tar.gz", hash = "sha256:df2ef5d2b8ca814313781f4ff35bf63e58f821ef517eeddbd523c19a61fa9bb9", size = 5944410, upload-time = "2026-07-27T11:23:30.698Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/ec/a729883ceda22dcd9117ce182f64d884bf494e72c4dfce00c2ad0a5978e1/sqlglot-30.14.0-py3-none-any.whl", hash = "sha256:fc768e24889d63a5e1237dea7ad305e5ffb4356a98b0bed828f89591ebcd3636", size = 719007, upload-time = "2026-07-27T11:23:28.637Z" },
 ]
 
 [[package]]

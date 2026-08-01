@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "semantido>=0.5.1",
+    "semantido[lint]>=0.5.1",
     "kafka-python==3.0.9",
     "PyYAML==6.0.3",
     "anthropic==0.120.2",

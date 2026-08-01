@@ -1,12 +1,11 @@
--- Interpretation: "outstanding" = latest action per UTI is not EROR or TERM.
--- COUNT(DISTINCT uti) is used to count economic trades (not report submissions).
--- "Latest action per UTI" is determined by max(reporting_timestamp) per UTI.
+-- Interpretation: "currently outstanding" = UTIs whose latest action_type is not EROR (error/cancellation).
+-- NEWT/MODI are live states; EROR voids the report. Counting distinct UTIs (not report rows) per schema guidance.
+-- "Not cancelled" resolved as: latest action_type per UTI is not 'EROR'.
 
-SELECT COUNT(DISTINCT uti) AS outstanding_trade_count
-FROM `emir.trade-reports`
-WHERE (uti, reporting_timestamp) IN (
-    SELECT uti, MAX(reporting_timestamp)
+SELECT COUNT(*) AS outstanding_trade_count
+FROM (
+    SELECT uti
     FROM `emir.trade-reports`
     GROUP BY uti
-)
-AND action_type NOT IN ('EROR', 'TERM');
+    HAVING LATEST(action_type ORDER BY reporting_timestamp) <> 'EROR'
+) latest_states

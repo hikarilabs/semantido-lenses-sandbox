@@ -198,8 +198,7 @@ class ClearingEvents(TopicBase):
                         "over latest-per-key state — a Lenses-dialect "
                         "concern (_meta.offset), deliberately NOT a "
                         "sql_filter because it is not SQL over this "
-                        "schema. "
-                        "state. In Lenses SQL, group by key and take the "
+                        "schema. In Lenses SQL, group by key and take the "
                         "max-offset record, or query the table projection.",
     time_dimension="as_of",
 )
@@ -224,7 +223,6 @@ class Positions(TopicBase):
                 "lifecycle action. Dual-sided: in-scope trades appear "
                 "twice (one per reporting counterparty).",
     concept="emir_trade_report",
-    sql_filters=["action_type <> 'EROR'"],
     application_context="Latest action per UTI is the trade state; "
                         "count distinct UTIs for trade counts, never "
                         "report rows.",

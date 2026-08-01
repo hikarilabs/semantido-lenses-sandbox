@@ -1,22 +1,15 @@
--- Interpretation: "current" = latest record per (clearing_member_id, account, contract_series) key,
--- resolved via max _meta.offset per partition and key, before summing ABS(net_quantity).
--- Total open interest per series = SUM(ABS(net_quantity)) / 2 over latest snapshots
--- (each economic position appears on both sides of the CCP book).
-
 SELECT
-    contract_series,
-    SUM(ABS(net_quantity)) / 2 AS total_abs_net_position
+  contract,
+  SUM(ABS(net_quantity)) AS total_abs_net_position
 FROM (
-    SELECT
-        contract_series,
-        net_quantity,
-        ROW_NUMBER() OVER (
-            PARTITION BY clearing_member_id, account, contract_series, _meta.partition
-            ORDER BY _meta.offset DESC
-        ) AS rn
-    FROM `etd.positions`
+  SELECT
+    position_key,
+    contract,
+    net_quantity,
+    MAX(_meta.offset) OVER (PARTITION BY position_key) AS max_offset,
+    _meta.offset AS record_offset
+  FROM `etd.positions`
 ) latest
-WHERE rn = 1
-GROUP BY contract_series
+WHERE record_offset = max_offset
+GROUP BY contract
 ORDER BY total_abs_net_position DESC
-LIMIT 500;

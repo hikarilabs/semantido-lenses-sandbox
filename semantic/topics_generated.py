@@ -18,10 +18,11 @@ class TopicBase(SemanticBase, DeclarativeBase):
 
 
 @semantic_table(
-    description='EMIR trade reports (one record per submission, append-only). Dual-sided: each economic trade normally appears twice.',
+    description='EMIR trade reports, one row per report side per lifecycle action. Dual-sided: in-scope trades appear twice.',
     synonyms=['EMIR reports', 'transaction reports', 'TR submissions'],
-    application_context='Count economic trades with COUNT(DISTINCT uti). counterparty_1/2 are LEIs of legal parties -- never join to clearing member codes.',
+    application_context='Count economic trades with COUNT(DISTINCT uti). counterparty_lei is a legal-entity LEI -- never join to clearing member codes.',
     time_dimension='reporting_timestamp',
+    concept='emir_trade_report',
 )
 class EmirTradeReports(TopicBase):
     __tablename__ = 'emir.trade-reports'
@@ -29,45 +30,218 @@ class EmirTradeReports(TopicBase):
     report_id = Column(String, primary_key=True)
     uti = Column(String)
     uti_description = 'Unique Transaction Identifier'
-    uti_application_rules = ['COUNT(DISTINCT uti) = economic trades; COUNT(*) counts submissions (approx. double).']
-    counterparty_1 = Column(String)
-    counterparty_1_description = 'LEI of the reporting counterparty (EMIR field 1.4)'
-    counterparty_1_synonyms = ['reporting counterparty', 'CP1']
-    counterparty_1_concept = 'counterparty.emir_reporting'
-    counterparty_2 = Column(String)
-    counterparty_2_description = 'LEI of the other counterparty (EMIR field 1.9)'
-    counterparty_2_concept = 'counterparty.emir_reporting'
+    uti_application_rules = ['COUNT(DISTINCT uti) = economic trades; COUNT(*) counts report rows (approx. double).']
+    counterparty_lei = Column(String)
+    counterparty_lei_description = 'Reporting counterparty LEI (entity), not a member code'
+    counterparty_lei_concept = 'reporting_counterparty'
     action_type = Column(String)
     action_type_sample_values = ['NEWT', 'MODI', 'EROR', 'TERM']
     action_type_application_rules = ['Live trades = latest action per UTI not in (EROR, TERM).']
-    notional = Column(Float, nullable=True)
     reporting_timestamp = Column(DateTime)
 
 
 @semantic_table(
-    description='COMPACTED state topic: current net position per key (clearing_member_id, account, contract_series). Each record is a full replacement snapshot for its key, not a delta.',
+    description='Clearing lifecycle events (C7-style)',
+)
+class EtdClearingEvents(TopicBase):
+    __tablename__ = 'etd.clearing-events'
+
+    event_id = Column(String, primary_key=True)
+    event_type = Column(String)
+    event_type_sample_values = ['NOVATION', 'GIVE_UP', 'TAKE_UP', 'POSITION_NETTING', 'TRADE_CORRECTION']
+    exec_id = Column(String)
+    member_code = Column(String)
+    event_time = Column(DateTime)
+
+
+@semantic_table(
+    description='Exchange execution (fill) events, append-only',
+)
+class EtdExecutions(TopicBase):
+    __tablename__ = 'etd.executions'
+
+    exec_id = Column(String, primary_key=True)
+    order_id = Column(String)
+    order_id_description = 'Parent order; many fills per order'
+    member_code = Column(String)
+    side = Column(String)
+    side_sample_values = ['BUY', 'SELL']
+    exec_qty = Column(Numeric())
+    exec_price = Column(Numeric())
+    contract = Column(String)
+    exec_time = Column(DateTime)
+
+
+@semantic_table(
+    description='Client orders as submitted. One row per order event.',
+)
+class EtdOrders(TopicBase):
+    __tablename__ = 'etd.orders'
+
+    order_id = Column(String, primary_key=True)
+    account = Column(String)
+    contract = Column(String)
+    quantity = Column(BigInteger)
+    submitted_at = Column(DateTime)
+
+
+@semantic_table(
+    description='COMPACTED state topic: netted position per key (member_code, account, contract). Each record supersedes the previous one for its key.',
     synonyms=['positions', 'open interest by member'],
-    application_context='Lenses SQL: query as `etd.positions`. COMPACTION SEMANTICS: take the latest record per key (max _meta.offset per partition/key) before any aggregation; aggregating over full history double-counts.',
-    business_context='Netted post-clearing positions maintained by the CCP.',
-    time_dimension='as_of_time',
-    concept='position.net',
+    application_context='COMPACTED topic: only latest-per-key state is a position. In Lenses SQL take the max-_meta.offset record per key before any aggregation; full-history aggregates double-count.',
+    time_dimension='as_of',
+    concept='position_snapshot',
 )
 class EtdPositions(TopicBase):
     __tablename__ = 'etd.positions'
 
     position_key = Column(String, primary_key=True)
-    clearing_member_id = Column(String)
-    clearing_member_id_description = 'Clearing member holding the position'
-    clearing_member_id_concept = 'counterparty.clearing_member'
+    member_code = Column(String)
+    member_code_description = 'CCP membership code holding the position -- NOT an LEI'
+    member_code_concept = 'clearing_member'
     account = Column(String)
-    account_sample_values = ['A1', 'P1']
-    contract_series = Column(String)
+    contract = Column(String)
     net_quantity = Column(Numeric())
-    net_quantity_description = 'SIGNED net lots: positive = LONG, negative = SHORT.'
-    net_quantity_application_rules = ['Never SUM net_quantity across topic history; compaction means history contains superseded snapshots.', 'Total open interest per series = SUM(ABS(net_quantity))/2 over the LATEST record per key only.']
-    as_of_time = Column(DateTime)
-    margin_initial = Column('margin.initial', Float, nullable=True)
-    margin_initial_description = 'Lenses SQL path: margin.initial'
-    margin_ccy = Column('margin.ccy', String)
-    margin_ccy_description = 'Lenses SQL path: margin.ccy'
+    net_quantity_description = 'Signed: positive LONG, negative SHORT. This, not execution side, is direction.'
+    net_quantity_application_rules = ['Never aggregate net_quantity across topic history; compaction means history contains superseded snapshots.']
+    as_of = Column(DateTime)
+
+
+@semantic_table(
+    description='Schema for yellow taxi trip records from NYC TLC data. [http://www.nyc.gov/html/tlc/html/about/trip_record_data.shtml]',
+)
+class NycYellowTaxiTripData(TopicBase):
+    __tablename__ = 'nyc_yellow_taxi_trip_data'
+    # TODO: no key schema and no overlay primary_key; defaulted to first field
+
+    VendorID = Column(Integer, primary_key=True)
+    VendorID_description = 'A code indicating the TPEP provider that provided the record. 1: Creative Mobile Technologies, LLC 2: VeriFone Inc.'
+    tpep_pickup_datetime = Column(String)
+    tpep_pickup_datetime_description = 'The date and time when the meter was engaged.'
+    tpep_dropoff_datetime = Column(String)
+    tpep_dropoff_datetime_description = 'The date and time when the meter was disengaged.'
+    passenger_count = Column(Integer)
+    passenger_count_description = 'The number of passengers in the vehicle. This is a driver-entered value.'
+    trip_distance = Column(Float)
+    trip_distance_description = 'The elapsed trip distance in miles reported by the taximeter.'
+    pickup_longitude = Column(Float)
+    pickup_longitude_description = 'Longitude where the meter was engaged.'
+    pickup_latitude = Column(Float)
+    pickup_latitude_description = 'Latitude where the meter was engaged.'
+    RateCodeID = Column(Integer)
+    RateCodeID_description = 'The final rate code in effect at the end of the trip. 1: Standard rate, 2:JFK, 3:Newark, 4:Nassau or Westchester, 5:Negotiated fare, 6:Group ride'
+    store_and_fwd_flag = Column(String)
+    store_and_fwd_flag_description = 'This flag indicates whether the trip record was held in vehicle memory before sending to the vendor, aka “store and forward,” because the vehicle did not have a connection to the server. Y: store and forward trip N: not a store and forward trip'
+    dropoff_longitude = Column(Float)
+    dropoff_longitude_description = 'Longitude where the meter was disengaged.'
+    dropoff_latitude = Column(Float)
+    dropoff_latitude_description = 'Latitude where the meter was disengaged.'
+    payment_type = Column(Integer)
+    payment_type_description = 'A numeric code signifying how the passenger paid for the trip. 1: Credit card 2: Cash 3: No charge 4: Dispute 5: Unknown 6: Voided trip'
+    fare_amount = Column(Float)
+    fare_amount_description = 'The time-and-distance fare calculated by the meter.'
+    extra = Column(Float)
+    extra_description = 'Miscellaneous extras and surcharges. Currently, this only includes the $0.50 and $1 rush hour and overnight charges.'
+    mta_tax = Column(Float)
+    mta_tax_description = '$0.50 MTA tax that is automatically triggered based on the metered rate in use.'
+    improvement_surcharge = Column(Float)
+    improvement_surcharge_description = '$0.30 improvement surcharge assessed trips at the flag drop. The improvement surcharge began being levied in 2015.'
+    tip_amount = Column(Float)
+    tip_amount_description = 'Tip amount – This field is automatically populated for credit card tips. Cash tips are not included.'
+    tolls_amount = Column(Float)
+    tolls_amount_description = 'Total amount of all tolls paid in trip.'
+    total_amount = Column(Float)
+    total_amount_description = 'The total amount charged to passengers. Does not include cash tips.'
+
+
+@semantic_table(
+    description='Contract series reference data (compacted)',
+)
+class RefdataContracts(TopicBase):
+    __tablename__ = 'refdata.contracts'
+
+    contract_series = Column(String, primary_key=True)
+    product_type = Column(String)
+    product_type_sample_values = ['FUTURE', 'OPTION']
+    underlying = Column(String)
+    contract_multiplier = Column(Numeric())
+    expiry_date = Column(Date)
+
+
+@semantic_table(
+    description='Schema for AIS Class A Position Reports.',
+)
+class SeaVesselPositionReports(TopicBase):
+    __tablename__ = 'sea_vessel_position_reports'
+
+    Type = Column(Integer)
+    Type_description = 'The type of the AIS Message. 1/2/3 are Class A position reports.'
+    Repeat = Column(Integer)
+    Repeat_description = 'Repeat Indicator'
+    MMSI = Column(BigInteger, primary_key=True)
+    MMSI_description = 'User ID (MMSI)'
+    Speed = Column(Float)
+    Speed_description = 'Speed over Ground (SOG)'
+    Accuracy = Column(Boolean)
+    Accuracy_description = 'Position Accuracy'
+    Longitude = Column(Float)
+    Longitude_description = 'Longitude'
+    Latitude = Column(Float)
+    Latitude_description = 'Latitude'
+    location = Column(String)
+    location_description = "Location as 'lat,lon' string for use with Elastic Search."
+    Course = Column(Float)
+    Course_description = 'Course over Ground (COG)'
+    Heading = Column(Integer)
+    Heading_description = 'True Heading (HDG)'
+    Second = Column(Integer)
+    Second_description = 'Time Stamp'
+    RAIM = Column(Boolean)
+    RAIM_description = 'RAIM flag'
+    Radio = Column(BigInteger)
+    Radio_description = 'Radio Status'
+    Status = Column(Integer)
+    Status_description = 'Navigation Status (enumerated type)'
+    Turn = Column(Float)
+    Turn_description = 'Rate of Turn (ROT)'
+    Maneuver = Column(Integer)
+    Maneuver_description = 'Manuever Indicator (enumerated type)'
+    Timestamp = Column(BigInteger)
+    Timestamp_description = 'Time the message was encoded to avro (nanoseconds since epoch). May be used for ordering.'
+
+
+@semantic_table(
+    description='Schema for Telecommunications Data from Telecom Italia.',
+)
+class TelecomItaliaData(TopicBase):
+    __tablename__ = 'telecom_italia_data'
+
+    SquareId = Column(Integer, primary_key=True)
+    SquareId_description = ' The id of the square that is part of the Milano GRID'
+    TimeInterval = Column(BigInteger)
+    TimeInterval_description = 'The beginning of the time interval expressed as the number of millisecond elapsed from the Unix Epoch on January 1st, 1970 at UTC. The end of the time interval can be obtained by adding 600000 milliseconds (10 minutes) to this value.'
+    CountryCode = Column(Integer)
+    CountryCode_description = 'The phone country code of a nation. Depending on the measured activity this value assumes different meanings that are explained later.'
+    SmsInActivity = Column(Float, nullable=True)
+    SmsInActivity_description = 'The activity in terms of received SMS inside the Square id, during the Time interval and sent from the nation identified by the Country code.'
+    SmsOutActivity = Column(Float, nullable=True)
+    SmsOutActivity_description = 'The activity in terms of sent SMS inside the Square id, during the Time interval and received by the nation identified by the Country code.'
+    CallInActivity = Column(Float, nullable=True)
+    CallInActivity_description = 'The activity in terms of received calls inside the Square id, during the Time interval and issued from the nation identified by the Country code.'
+    CallOutActivity = Column(Float, nullable=True)
+    CallOutActivity_description = 'The activity in terms of issued calls inside the Square id, during the Time interval and received by the nation identified by the Country code.'
+    InternetTrafficActivity = Column(Float, nullable=True)
+    InternetTrafficActivity_description = 'The activity in terms of performed internet traffic inside the Square id, during the Time interval and by the nation of the users performing the connection identified by the Country code.'
+
+
+@semantic_table(
+    description='Schema for Grid for Telecommunications Data from Telecom Italia.',
+)
+class TelecomItaliaGrid(TopicBase):
+    __tablename__ = 'telecom_italia_grid'
+
+    SquareId = Column(Integer, primary_key=True)
+    SquareId_description = ' The id of the square that is part of the Milano GRID'
+    Polygon = Column(String)
+    Polygon_description = 'Avro array; JSON-encoded in Lenses SQL'
 
