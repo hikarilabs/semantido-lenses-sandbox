@@ -1,0 +1,41 @@
+format: semantido/groundings
+version: '1'
+namespace: etd_streaming
+groundings:
+  clearing_member:
+    definition_checksum: 2d0b96cf7bbd
+    tables:
+    - etd.clearing-events
+    columns:
+    - etd.clearing-events.member_code
+    - etd.executions.member_code
+    - etd.positions.member_code
+  emir_trade_report:
+    definition_checksum: 66239e593db0
+    tables:
+    - emir.trade-reports
+    columns:
+    - emir.trade-reports.report_id
+  execution:
+    definition_checksum: 618bfb56da1b
+    tables:
+    - etd.executions
+    columns:
+    - etd.executions.exec_id
+  order:
+    definition_checksum: bb32b39369b4
+    tables:
+    - etd.orders
+    columns:
+    - etd.executions.order_id
+    - etd.orders.order_id
+  position_snapshot:
+    definition_checksum: 507ba5e8a6c2
+    tables:
+    - etd.positions
+    columns:
+    - etd.positions.position_key
+  reporting_counterparty:
+    definition_checksum: 3cb52c647f19
+    columns:
+    - emir.trade-reports.counterparty_lei

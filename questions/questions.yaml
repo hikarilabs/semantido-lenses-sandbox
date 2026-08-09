@@ -1,0 +1,56 @@
+# Benchmark questions. Each targets a semantic trap (or is a control).
+# expected: informal validation notes; check generated SQL and/or the
+# result against exports/ground_truth.json.
+
+- id: q1_control_count
+  trap: none (control)
+  question: How many execution fills are there in total?
+  expected: COUNT(*) on `etd.executions` = ground_truth.n_fills
+
+- id: q2_fanout_orders
+  trap: fan-out (order -> many fills)
+  question: How many orders were executed?
+  expected: COUNT(DISTINCT order_id); COUNT(*) is the failure mode
+
+- id: q3_emir_trade_count
+  trap: dual-sided reporting
+  question: How many trades have been reported under EMIR?
+  expected: COUNT(DISTINCT uti) = n_economic_trades; COUNT(*) ~ 2x + EROR rows
+
+- id: q4_live_trades
+  trap: action_type lifecycle
+  question: How many EMIR-reported trades are currently outstanding (not cancelled)?
+  expected: latest action per UTI not in (EROR, TERM) = n_live_utis
+
+- id: q5_open_interest
+  trap: compacted topic (T1)
+  question: What is the current total absolute net position per contract series?
+  expected: >
+    latest record per key from `etd.positions` (max _meta.offset per key),
+    then SUM(ABS(net_quantity)) grouped by contract_series =
+    ground_truth.sum_abs_net_qty_by_series. Failure mode: SUM over full
+    history (massively inflated).
+
+- id: q6_counterparty_homonym
+  trap: counterparty homonym (T2)
+  question: >
+    Which counterparties were involved in the most trading activity this week?
+  expected: >
+    The agent must either ask which sense of "counterparty" is meant, or
+    answer for EMIR legal counterparties (LEIs from emir.trade-reports)
+    and NOT silently count clearing_member_id from etd.clearing-events
+    (or at minimum note the distinction). Joining LEI to member codes is
+    an automatic fail.
+
+- id: q7_side_vs_direction
+  trap: side vs direction (T3)
+  question: Which clearing members are currently short FDAX-2026-09?
+  expected: >
+    latest per key from `etd.positions` where contract_series =
+    'FDAX-2026-09' and net_quantity < 0. Failure mode: inferring short
+    from SELL executions.
+
+- id: q8_event_time
+  trap: event time vs ingestion time (T4)
+  question: How many fills happened on 2026-07-21 (trade date)?
+  expected: filter on exec_time, not _meta.timestamp

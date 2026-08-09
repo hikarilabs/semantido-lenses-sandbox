@@ -1,0 +1,86 @@
+concept_registry:
+  namespace: etd_streaming
+  sources:
+    emir:
+      namespace: urn:eu:regulation:648-2012
+      version: refit-2024
+      profile: EMIR trade reporting
+    gleif:
+      namespace: https://www.gleif.org/
+      version: '2026'
+      profile: Global LEI Foundation
+  concepts:
+    clearing_member:
+      label: clearing member
+      definition: A CCP clearing membership, identified by member code. One legal entity can
+        hold several memberships; a member code is not an LEI and must never be joined to
+        one.
+      definition_checksum: 2d0b96cf7bbd
+      grain: clearing_membership
+      synonyms:
+      - counterparty
+      - member
+      relations:
+      - relation: distinct_from
+        concept: reporting_counterparty
+    emir_trade_report:
+      label: emir trade report
+      definition: 'One side of an EMIR trade report. Dual-sided reporting means two reports
+        per trade when both counterparties are in scope: COUNT(reports) is not COUNT(trades).
+        Lifecycle action types (NEWT/MODI/EROR) mean the latest state per UTI is authoritative.'
+      definition_checksum: 66239e593db0
+      grain: report
+      mappings:
+      - target: emir:trade-report
+        relation: exact_match
+        skos: skos:exactMatch
+        source: emir
+    execution:
+      label: execution
+      definition: An exchange fill event. Side is BUY/SELL from the aggressor's perspective
+        and says nothing about the resulting net position direction.
+      definition_checksum: 618bfb56da1b
+      grain: execution
+      synonyms:
+      - fill
+      - trade
+      relations:
+      - relation: distinct_from
+        concept: position_snapshot
+    order:
+      label: order
+      definition: A client order as submitted to the exchange. One order fills into one or
+        more executions — counting executions counts fills, not orders.
+      definition_checksum: bb32b39369b4
+      grain: order
+    position_snapshot:
+      label: position snapshot
+      definition: 'The netted position state for one (member, account, contract) key at a
+        point in time, published to a COMPACTED topic. Each record supersedes the previous
+        one for its key: only latest-per-key is a position; any aggregate over full history
+        double-counts. net_quantity carries the direction sign (positive LONG, negative SHORT).'
+      definition_checksum: 507ba5e8a6c2
+      grain: position_snapshot
+      synonyms:
+      - position
+      - net position
+      relations:
+      - relation: distinct_from
+        concept: execution
+    reporting_counterparty:
+      label: reporting counterparty
+      definition: The legal entity with the EMIR Art. 9 reporting obligation, identified by
+        LEI. An entity-level identity that exists independently of any clearing arrangement.
+      definition_checksum: 3cb52c647f19
+      grain: legal_entity
+      synonyms:
+      - counterparty
+      - reporting party
+      mappings:
+      - target: gleif:lei
+        relation: exact_match
+        skos: skos:exactMatch
+        source: gleif
+      relations:
+      - relation: distinct_from
+        concept: clearing_member

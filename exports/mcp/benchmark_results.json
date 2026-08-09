@@ -1,0 +1,98 @@
+[
+  {
+    "id": "q1_control_count",
+    "condition": "baseline",
+    "sql": "SELECT COUNT(*) AS total_execution_fills\nFROM `etd.executions`;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q1_control_count",
+    "condition": "semantic",
+    "sql": "SELECT COUNT(*) AS total_fills FROM `etd.executions`;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q2_fanout_orders",
+    "condition": "baseline",
+    "sql": "SELECT COUNT(DISTINCT order_id) AS executed_order_count\nFROM `etd.executions`;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q2_fanout_orders",
+    "condition": "semantic",
+    "sql": "SELECT COUNT(DISTINCT order_id) AS total_orders\nFROM `etd.executions`;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q3_emir_trade_count",
+    "condition": "baseline",
+    "sql": "SELECT COUNT(*) AS total_emir_trade_reports\nFROM `emir.trade-reports`;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q3_emir_trade_count",
+    "condition": "semantic",
+    "sql": "COUNT(DISTINCT uti) to count economic trades, not COUNT(*) which would double-count due to dual-sided reporting.\nSELECT COUNT(DISTINCT uti) AS economic_trade_count\nFROM `emir.trade-reports`;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q4_live_trades",
+    "condition": "baseline",
+    "sql": "SELECT\n    COUNT(*) AS outstanding_trade_count\nFROM `emir.trade-reports`\nWHERE action_type <> 'CANCEL';",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q4_live_trades",
+    "condition": "semantic",
+    "sql": "-- Interpretation: \"outstanding\" = latest action per UTI is not EROR or TERM.\n-- COUNT(DISTINCT uti) is used to count economic trades (not report submissions).\n-- \"Latest action per UTI\" is determined by max(reporting_timestamp) per UTI.\n\nSELECT COUNT(DISTINCT uti) AS outstanding_trade_count\nFROM `emir.trade-reports`\nWHERE (uti, reporting_timestamp) IN (\n    SELECT uti, MAX(reporting_timestamp)\n    FROM `emir.trade-reports`\n    GROUP BY uti\n)\nAND action_type NOT IN ('EROR', 'TERM');",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q5_open_interest",
+    "condition": "baseline",
+    "sql": "SELECT\n    contract_series,\n    SUM(ABS(net_quantity)) AS total_abs_net_position\nFROM `etd.positions`\nGROUP BY contract_series\nORDER BY total_abs_net_position DESC;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q5_open_interest",
+    "condition": "semantic",
+    "sql": "-- Interpretation: \"current\" = latest record per (clearing_member_id, account, contract_series) key,\n-- resolved via max _meta.offset per partition and key, before summing ABS(net_quantity).\n-- Total open interest per series = SUM(ABS(net_quantity)) / 2 over latest snapshots\n-- (each economic position appears on both sides of the CCP book).\n\nSELECT\n    contract_series,\n    SUM(ABS(net_quantity)) / 2 AS total_abs_net_position\nFROM (\n    SELECT\n        contract_series,\n        net_quantity,\n        ROW_NUMBER() OVER (\n            PARTITION BY clearing_member_id, account, contract_series, _meta.partition\n            ORDER BY _meta.offset DESC\n        ) AS rn\n    FROM `etd.positions`\n) latest\nWHERE rn = 1\nGROUP BY contract_series\nORDER BY total_abs_net_position DESC\nLIMIT 500;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q6_counterparty_homonym",
+    "condition": "baseline",
+    "sql": "-- Interpreting \"trading activity\" as number of EMIR trade reports filed this week, using reporting_timestamp as the business event time.\n-- \"This week\" is resolved using reporting_timestamp >= date trunc to current week (Monday).\n-- Each report involves two counterparties; we union both sides to count activity per counterparty.\n\nSELECT\n    counterparty,\n    COUNT(*) AS report_count,\n    SUM(notional) AS total_notional,\n    MIN(reporting_timestamp) AS first_report,\n    MAX(reporting_timestamp) AS last_report\nFROM (\n    SELECT counterparty_1 AS counterparty, notional, reporting_timestamp\n    FROM `emir.trade-reports`\n    WHERE reporting_timestamp >= DATEADD(DAY, -(DAYOFWEEK(CURRENT_TIMESTAMP) - 2), CAST(CURRENT_DATE AS TIMESTAMP))\n      AND reporting_timestamp <= CURRENT_TIMESTAMP\n\n    UNION ALL\n\n    SELECT counterparty_2 AS counterparty, notional, reporting_timestamp\n    FROM `emir.trade-reports`\n    WHERE reporting_timestamp >= DATEADD(DAY, -(DAYOFWEEK(CURRENT_TIMESTAMP) - 2), CAST(CURRENT_DATE AS TIMESTAMP))\n      AND reporting_timestamp <= CURRENT_TIMESTAMP\n) AS combined\nGROUP BY counterparty\nORDER BY report_count DESC\nLIMIT 25;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q6_counterparty_homonym",
+    "condition": "semantic",
+    "sql": "-- Interpreting \"counterparties\" as EMIR reporting counterparties (counterparty.emir_reporting, identified by LEI in emir.trade-reports),\n-- \"trading activity\" as number of distinct economic trades (COUNT(DISTINCT uti)) where each UTI is counted once,\n-- and \"this week\" as the current ISO calendar week (Monday\u2013today) based on reporting_timestamp.\n\nSELECT\n    counterparty_lei,\n    COUNT(DISTINCT uti) AS economic_trade_count\nFROM (\n    SELECT counterparty_1 AS counterparty_lei, uti, reporting_timestamp\n    FROM `emir.trade-reports`\n    UNION ALL\n    SELECT counterparty_2 AS counterparty_lei, uti, reporting_timestamp\n    FROM `emir.trade-reports`\n) combined\nWHERE\n    reporting_timestamp >= CAST(DATE_TRUNC('week', CURRENT_TIMESTAMP) AS TIMESTAMP)\n    AND reporting_timestamp < CURRENT_TIMESTAMP\n    AND action_type NOT IN ('EROR', 'TERM')\nGROUP BY\n    counterparty_lei\nORDER BY\n    economic_trade_count DESC\nLIMIT 20;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q7_side_vs_direction",
+    "condition": "baseline",
+    "sql": "SELECT\n    clearing_member_id,\n    account,\n    net_quantity,\n    as_of_time\nFROM `etd.positions`\nWHERE contract_series = 'FDAX-2026-09'\n  AND net_quantity < 0\nORDER BY net_quantity ASC\nLIMIT 100;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q7_side_vs_direction",
+    "condition": "semantic",
+    "sql": "SELECT clearing_member_id, account, net_quantity\nFROM (\n    SELECT\n        clearing_member_id,\n        account,\n        contract_series,\n        net_quantity,\n        ROW_NUMBER() OVER (PARTITION BY clearing_member_id, account, contract_series ORDER BY _meta.offset DESC) AS rn\n    FROM `etd.positions`\n    WHERE contract_series = 'FDAX-2026-09'\n) latest\nWHERE rn = 1\n  AND net_quantity < 0\nORDER BY net_quantity ASC;",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q8_event_time",
+    "condition": "baseline",
+    "sql": "SELECT\n  COUNT(*) AS fill_count\nFROM `etd.executions`\nWHERE exec_time >= TIMESTAMP('2026-07-21 00:00:00')\n  AND exec_time <  TIMESTAMP('2026-07-22 00:00:00');",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  },
+  {
+    "id": "q8_event_time",
+    "condition": "semantic",
+    "sql": "SELECT COUNT(*) AS fill_count\nFROM `etd.executions`\nWHERE exec_time >= TIMESTAMP('2026-07-21 00:00:00')\n  AND exec_time <  TIMESTAMP('2026-07-22 00:00:00');",
+    "error": "unhandled errors in a TaskGroup (1 sub-exception)"
+  }
+]
