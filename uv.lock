@@ -19,7 +19,7 @@ wheels = [
 
 [[package]]
 name = "anthropic"
-version = "0.120.2"
+version = "0.121.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -31,9 +31,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d7/10/4ca013cb166f226bd89e0aeb0fcaff94f45ddf716d4925ce89475d3c587b/anthropic-0.120.2.tar.gz", hash = "sha256:9722efc10c27a30a69f5338ddacdb35bc6a64297a4e4ba729bf83af873d5fb3a", size = 1008421, upload-time = "2026-07-28T17:38:26.986Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/ca/3cb2c20ee729736fbd4546d5d8b67e818288529fe70cb7a80dbf80aef70b/anthropic-0.121.0.tar.gz", hash = "sha256:e79d6e08ab3376602fc9a70d4d5ea3540817c76cf7e16658bed790834e1833d6", size = 1013292, upload-time = "2026-08-07T17:11:07.241Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/af/0f5db57b9397a0f3b7fc204cbef143401a7cadaf982330f97f1ce3d39f34/anthropic-0.120.2-py3-none-any.whl", hash = "sha256:0f0bc2b381dc0eb41c8d886b815d79c2041cd2374f83aed36f574b6dc9c579c1", size = 1022851, upload-time = "2026-07-28T17:38:25.466Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/91/b3d41643f1f639927e8c5fb02c3bd8bffe6f1f29e219b3bd4c61e267b15c/anthropic-0.121.0-py3-none-any.whl", hash = "sha256:6048713fa441e59e1cba8363171cd2a86273b25bd213e9c7ac70a523af88b011", size = 1035493, upload-time = "2026-08-07T17:11:08.508Z" },
 ]
 
 [[package]]
@@ -428,11 +428,11 @@ wheels = [
 
 [[package]]
 name = "kafka-python"
-version = "3.0.9"
+version = "3.0.10"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/99/ae/2a6a54192fa336d10306a10f67a2db7ebb70bbe1600127b29fd45f18af50/kafka_python-3.0.9.tar.gz", hash = "sha256:703c00a59d9853494a9821f8665d99e9443951dabe657a0b2a24e9e50a70703d", size = 513213, upload-time = "2026-07-21T18:19:27.838Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/1a/828be30211d0c78d02a7b3bd6dd36d6cc39539693600960315d41192bd5e/kafka_python-3.0.10.tar.gz", hash = "sha256:06950fed5e705ec5207458ca6ae43b6c0ae1de4146ddbf7877f42a893830100c", size = 513160, upload-time = "2026-08-04T23:44:15.106Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fa/a0/d6c0d888a865fe06fc9746ca0519f511acca4b36a750e04b703ed47fdd61/kafka_python-3.0.9-py3-none-any.whl", hash = "sha256:506ba871979b79813120bbf522bd71d827611c0756de57aac5a15f111a11bed4", size = 614119, upload-time = "2026-07-21T18:19:25.739Z" },
+    { url = "https://files.pythonhosted.org/packages/87/e1/23a30f129281533f14c09616f3182dee952eaf70d62c2342387b888d9047/kafka_python-3.0.10-py3-none-any.whl", hash = "sha256:9b2597f194009dcab8f7207ce9a15d59cb5d30bf5aa742fea69dffbd2866b2d1", size = 614240, upload-time = "2026-08-04T23:44:12.336Z" },
 ]
 
 [[package]]
@@ -736,15 +736,15 @@ wheels = [
 
 [[package]]
 name = "semantido"
-version = "0.5.1"
+version = "0.5.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "sqlalchemy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/75/a5/05a00842371e4bb2592881ff5b43da27fc144190b4702ef93c0b9419b160/semantido-0.5.1.tar.gz", hash = "sha256:a4147fd228b42200092e4e8392d30999791dea5c4f88bf01d13923f4a2d154be", size = 135190, upload-time = "2026-07-31T22:19:37.979Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f9/a1/796a014b9b66159e3c63e499af7b583ef571574d96e829cc88cd8a461706/semantido-0.5.2.tar.gz", hash = "sha256:49b0cef65019e64a228a49aaa3c2d65d3457949d291c57b1ca7f2c135fd0f682", size = 135557, upload-time = "2026-08-02T16:47:23.454Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a6/fb/e32b4b59304a0eca32bd878416c1ba95f3ee246cdbf8ddad15ca7295ca74/semantido-0.5.1-py3-none-any.whl", hash = "sha256:91a3d9bf1effe5823dc8aee6fde1f1cad80dda832ccd54801a4232dbfc950437", size = 66112, upload-time = "2026-07-31T22:19:36.657Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/2f/48962000957959e0c7ee827fd1ca19bc81f3e30a42cd77a95346a4fb6059/semantido-0.5.2-py3-none-any.whl", hash = "sha256:cbc3573d32e69c3c1eb776fa37362ad9dee8d94a37f40142e6ec1e4817b3c864", size = 66209, upload-time = "2026-08-02T16:47:24.582Z" },
 ]
 
 [[package]]
@@ -761,11 +761,11 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = "==0.120.2" },
-    { name = "kafka-python", specifier = "==3.0.9" },
+    { name = "anthropic", specifier = "==0.121.0" },
+    { name = "kafka-python", specifier = "==3.0.10" },
     { name = "mcp", specifier = "==2.0.0" },
     { name = "pyyaml", specifier = "==6.0.3" },
-    { name = "semantido", specifier = ">=0.5.1" },
+    { name = "semantido", specifier = ">=0.5.2" },
 ]
 
 [[package]]
